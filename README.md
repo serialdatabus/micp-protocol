@@ -400,26 +400,40 @@ GET /v1/discovery
 
 ```json
 { "micp": "0.2",
-  "methods": [
-    { "name": "email.elizeu.send",
-      "description": "Send an email from the selected account.",
-      "input":  { "to": {"type":"email","required":true},
-                  "subject": {"type":"text","required":true,"max":200},
-                  "body": {"type":"text","required":true} },
-      "output": { "sent": {"type":"boolean","expected":true},
-                  "message_id": {"type":"text"} } }
+  "integrations": [
+    { "integration": "email",
+      "accounts": [
+        { "account": "elizeu",
+          "methods": [
+            { "name": "email.elizeu.send",
+              "description": "Send an email from the selected account.",
+              "input":  { "to": {"type":"email","required":true},
+                          "subject": {"type":"text","required":true,"max":200},
+                          "body": {"type":"text","required":true} },
+              "output": { "sent": {"type":"boolean","expected":true},
+                          "message_id": {"type":"text"} } },
+            { "name": "email.elizeu.list", "…": "…" }
+          ] },
+        { "account": "suporte", "methods": [ "…" ] }
+      ] },
+    { "integration": "telegram",
+      "accounts": [ { "account": "canal_curso", "methods": [ "…" ] } ] }
   ] }
 ```
 
-Four keys per method, and nothing else. `name` carries the integration and the account, so the request never
-repeats them. `input` is what the caller may send; `output` is what comes back. There are no paths, no headers,
-no transport and no endpoint in this response: those belong to the pack and never leave the server.
+Three levels, in the order a person thinks about them: the integration, the accounts inside it, and the
+methods each account may use. A method carries four keys: `name`, `description`, `input` and `output`.
 
-The list contains only what is installed and enabled on that server. A credential grants access to the server;
-how a deployment organises tenants, roles and interface is left to the implementation.
+The `name` is repeated at every level on purpose. It could be assembled from the three parts, but a caller
+that has to concatenate strings eventually concatenates them wrong. Given the name, it copies it.
 
-The same data can be rendered as a compact block for a prompt, with `?target=text`. Any other value is refused
-with `alvo_invalido`, so a typo surfaces on the first attempt instead of in a client three weeks later.
+There are no paths, no headers, no transport and no endpoint in this response: those belong to the pack and
+never leave the server. The list contains only what is installed and enabled. A credential grants access to
+the server; how a deployment organises tenants, roles and interface is left to the implementation.
+
+The same data can be rendered as a compact block for a prompt, with `?target=text`. Any other value is
+refused with `alvo_invalido`, so a typo surfaces on the first attempt instead of in a client three weeks
+later.
 
 ## 6. Implementation
 
