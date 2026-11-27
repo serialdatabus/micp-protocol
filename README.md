@@ -1,6 +1,6 @@
 # MICP: Managed Integration & Credential Protocol
 
-**Integrations for agents, without lending them the keys.**
+**A protocol for one server that connects many services, and never lends the agent the keys.**
 
 Version 0.2 · 26 November 2026 · Elizeu Carlos · All rights reserved
 
@@ -11,10 +11,11 @@ Build an integration in the browser: **https://micpprotocol.com/builder.html**
 
 ## Abstract
 
-Software agents are now asked to act on real systems: send mail, publish video, write rows into a
+MICP is a protocol for an integration server: one server that holds connections to many services
+(Google, Microsoft, Stripe, Telegram, a spreadsheet, a mailbox) and performs calls on their behalf.
+Software agents are now asked to act on those systems: send mail, publish video, write rows into a
 spreadsheet. The usual way to grant that access is to hand the agent a credential (a token, a password, an
-API key) and to hope that the transcript stays private. This paper describes MICP, a declarative protocol in
-which an agent never holds a credential. Integrations declare what exists; accounts hold the secrets,
+API key) and to hope that the transcript stays private. In it, an agent never holds a credential. Integrations declare what exists; accounts hold the secrets,
 encrypted under a single vault key and enable the methods they may use; and every call is scoped and
 recorded. We separate what a protocol must specify from what an implementation
 may choose, and we argue that existing tool-calling protocols sit above this layer rather than replacing it.
