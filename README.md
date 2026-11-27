@@ -43,16 +43,24 @@ may choose, and we argue that existing tool-calling protocols sit above this lay
 integration server holds the accounts and performs the call, and the vault key stays behind, outside the
 database and outside every conversation.*
 
-Three roles appear in every deployment, and none of them is a product. The **agent** is the model that
-chooses among tools and asks for an action. The **client** is the software that hosts the agent and
-assembles the list of tools it is allowed to see. It may be a chat application, a workflow engine, an editor
-or a command line. The **integration server** holds the accounts, the vault and the execution path. The
-protocol constrains what is declared and how a call is authorised; it says nothing about who builds the
-client or in what language.
+The centre of the picture is the **integration server**: one server that holds many integrations. An
+integration is a type of service, such as email, messaging or spreadsheets. Inside each integration there are
+accounts, one per connection, each with its own credential. And each account enables the methods it is allowed
+to use. One server, many integrations, several accounts per integration, a few methods per account.
+
+Two roles sit around it. The **client** is the software that talks to the server: it asks what exists, and
+presents each method to the model as a tool. It may be a chat application, a workflow engine, an editor or a
+command line. The **agent** is the model inside that client, choosing among the methods and asking for an
+action. The protocol constrains what the server declares and how a call is authorised; it says nothing about
+who builds the client or in what language.
 
 ---
 
 ## 1. Introduction
+
+This paper describes the server that sits behind the agent: one integration server, holding the integrations an
+operator has installed, each with its accounts and the methods those accounts may use. It is not a library and
+not a framework. It is a place where credentials live and calls are decided.
 
 An agent needs to send an email. The easy way is to paste an application password into the chat. It works.
 For about three weeks, nobody notices anything.
