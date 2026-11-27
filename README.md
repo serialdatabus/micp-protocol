@@ -198,7 +198,9 @@ The vault key is the only secret an operator has to keep, rotate and back up. It
 anyone and it does not grant anything: it opens a store. Permission is decided in the grant table, because a
 key that decides policy has to be edited to change policy, and that is how permissions end up spread across
 files. It is a plain pair of keys: one private key that decrypts, one public key that encrypts. Two files,
-two lines of configuration, no special format.
+two lines of configuration, no special format: X25519 to agree a secret, AES-256-GCM to seal each value, and
+the record's address mixed into the authenticated data. Three commands cover its whole life: `keygen`,
+`verify` and `rotate`.
 
 ![The vault key sits outside the database](images/fig3.png)
 
@@ -208,7 +210,7 @@ grant rows, and no usable secret.*
 ### 3.1 Storage and retrieval
 
 A credential is encrypted before it touches disk, with a random nonce per record and the record's address
-bound into the authenticated data: workspace, integration, account, field. Copying a row into another
+bound into the authenticated data: installation, integration, account, field. Copying a row into another
 account therefore fails to decrypt, which turns a database write into a non-event.
 
 ![Four moments of a credential](images/fig4.png)
@@ -338,6 +340,29 @@ If the method declares `output`, only the listed fields come back, each with a t
 `output` chooses and checks. It does not transform: no renaming, no date arithmetic, no joins. If you need
 that, do it where you call, not inside the pack.
 
+Two optional marks per field handle the two ways a response can disappoint you. `default` covers a field that
+did not come: the server returns the default instead of failing. `expected` covers a field that came with the
+wrong value: the call fails, because a response that says `ok: false` is not a success even when the HTTP
+status is 200.
+
+```json
+"output": {
+  "ok":   { "path": "body.ok",   "type": "boolean", "expected": true },
+  "chat": { "path": "body.chat", "type": "text",    "default": "" }
+}
+```
+
+When `expected` fails, the answer is a typed error:
+
+```json
+{ "ok": false, "error": "resposta_inesperada",
+  "campo": "ok", "esperado": true, "recebido": false,
+  "efeito_possivel": true, "tentavel": false }
+```
+
+`efeito_possivel` matters: the provider answered 200, so the action may have happened. It is not an error to
+retry blindly; it is one to check first.
+
 One exception is worth spelling out. A few services return a *new* credential in the response, a refresh
 token being the usual case. If the answer carries a field whose name matches a secret already stored for that
 account, the server stores it in the vault, encrypted, and returns `{"stored": true}` in its place. The value
@@ -365,14 +390,45 @@ and shown in a user interface. It is a menu, not a key.
 
 ---
 
+### 5.1 The discovery response
+
+A caller asks the server what exists:
+
+```http
+GET /v1/discovery
+```
+
+```json
+{ "micp": "0.2",
+  "methods": [
+    { "name": "email.elizeu.send",
+      "description": "Send an email from the selected account.",
+      "input":  { "to": {"type":"email","required":true},
+                  "subject": {"type":"text","required":true,"max":200},
+                  "body": {"type":"text","required":true} },
+      "output": { "sent": {"type":"boolean","expected":true},
+                  "message_id": {"type":"text"} } }
+  ] }
+```
+
+Four keys per method, and nothing else. `name` carries the integration and the account, so the request never
+repeats them. `input` is what the caller may send; `output` is what comes back. There are no paths, no headers,
+no transport and no endpoint in this response: those belong to the pack and never leave the server.
+
+The list contains only what is installed and enabled on that server. A credential grants access to the server;
+how a deployment organises tenants, roles and interface is left to the implementation.
+
+The same data can be rendered as a compact block for a prompt, with `?target=text`. Any other value is refused
+with `alvo_invalido`, so a typo surfaces on the first attempt instead of in a client three weeks later.
+
 ## 6. Implementation
 
 A model does not need a protocol to get tools. It needs a name, a description and a JSON schema. Whoever
 builds that list is the client, and building it is the work this section describes.
 
 1. **Place the vault.** In the same process, or on a separate integration server. If separate, the client
-   records a URL and the two sides pair once with a short-lived code that carries the workspace scope.
-2. **Expose discovery.** The server answers what exists for that workspace: accounts, methods, input and
+   records the server's address and the client pairs once with a short-lived code.
+2. **Expose discovery.** The server answers what is installed and enabled: accounts, methods, input and
    output schemas, filtered as in Section 5.
 3. **Cross with grants.** Keep only what this agent may call. This happens before the model is prompted, not
    after it tries.
@@ -385,8 +441,8 @@ builds that list is the client, and building it is the work this section describ
    reload: nothing else to build, nothing to deploy.
 
 Announcing everything is simpler to build and easier for a model to use. It also costs context on every call.
-That is a product decision, not a protocol one, and it can be changed per workspace, which is why enablement
-belongs to the workspace and not to the installation.
+That is a product decision, not a protocol one, and it can be changed per account, which is why enablement
+belongs to whoever operates the server.
 
 ### 6.1 Building an integration
 
@@ -436,12 +492,12 @@ than implied.
 |---|---|---|
 | Declarative methods | implemented | transports http, smtp, imap |
 | Accounts as data | implemented | methods enabled per account |
-| Grants per method | implemented | enforced before execution |
-| Filtered discovery | implemented | invisible, not refused |
+| Grants per method | not in 0.2 | one access level per server; scoping is left to the implementation |
+| Filtered discovery | implemented | only installed and enabled methods appear |
 | Audit of calls | implemented | account, method, caller, outcome |
-| Vault with key rotation | in progress | single-key encryption shipped; versioned rotation next |
-| Pairing with workspace scope | in progress | embedded mode complete; remote handshake next |
-| Signed calls with nonce | in progress | scoped run passes shipped; body signature next |
+| Vault, X25519 and AES-256-GCM | implemented | keygen, verify and rotate; one key per installation |
+| Discovery endpoint | implemented | `GET /v1/discovery`, JSON and text |
+| Signed calls with nonce | in progress | scoped tokens shipped; body signature next |
 
 The protocol is specified carefully because the failure is expensive: a password handed to an agent cannot be
 taken back. A feature written down but not built is a promise; a feature built but not written down is a
