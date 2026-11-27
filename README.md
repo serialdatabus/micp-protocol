@@ -106,7 +106,7 @@ Three nouns, and one rule for each:
 *Figure 2. The three nouns. Twenty accounts sharing six methods produce six contracts, not a hundred and
 twenty. And a method is enabled per account, so one mailbox may send while another may also read.*
 
-A method is *declarative*: an endpoint, a request template, an input schema and an output map. It contains no
+A method is *declarative*: an endpoint, a request template, an input schema and an optional output map. It contains no
 code. The executor is written once and reads the declaration, which is why adding an integration is a
 configuration change and not a deployment, and why a pack can be reviewed by reading it.
 
@@ -201,12 +201,11 @@ there are many. The vault key belongs to the installation, and there is one.
 |---|---|---|---|
 | Vault key | one per installation | encrypts and decrypts stored credentials | never |
 | Account credential | one per account | what the provider issued | only on the outbound call |
-| Access token | one per agent or run | who may call which method | to that caller |
+| Access token | one per caller | which methods it may call | to that caller |
 
 The vault key is the only secret an operator has to keep, rotate and back up. It does not authenticate
-anyone and it does not grant anything: it opens a store. Permission is decided in the grant table, because a
-key that decides policy has to be edited to change policy, and that is how permissions end up spread across
-files. It is a plain pair of keys: one private key that decrypts, one public key that encrypts. Two files,
+anyone and it does not grant anything: it opens a store. Permission is a property of the deployment, not of the key: what an account may do is decided where the
+account is enabled, and the key only opens the store. It is a plain pair of keys: one private key that decrypts, one public key that encrypts. Two files,
 two lines of configuration, no special format: X25519 to agree a secret, AES-256-GCM to seal each value, and
 the record's address mixed into the authenticated data. Three commands cover its whole life: `keygen`,
 `verify` and `rotate`.
@@ -487,20 +486,24 @@ easier to audit than a language.
 ## 7. Conformance
 
 An implementation conforms to MICP v0.2 if it satisfies the following. The list is deliberately short: every
+
+The reference implementation meets ten of these twelve. Items 8 and 9 are specified and not yet built; they are
+listed here because the protocol requires them, and because a reader deserves to know which promises are still
+open.
 item can be checked by reading a pack or by issuing a request.
 
 1. A method is one operation, with an input and an output schema.
 2. Every method names a transport from `{http, smtp, imap}`.
-3. Secrets are referenced, never embedded: `$vault:name.field`.
+3. Secrets are referenced, never embedded: `{{vault:integration.account.field}}`.
 4. No pack contains a credential, in any form, including examples.
 5. Every integration declares an allowlist of destinations.
 6. Grants are per account and per method, never per integration.
 7. Discovery returns only what the caller is granted.
-8. Every call is idempotent per run, node and attempt.
+8. Every call is idempotent per request identifier and attempt.
 9. Calls carry a timestamp and a nonce; replays are rejected.
 10. Errors are typed, and the type is stable across versions.
 11. The vault key is stored outside the database, with a separate backup and a tested restore.
-12. Every call is recorded: account, method, caller, run, outcome, duration.
+12. Every call is recorded: account, method, caller, outcome, duration.
 
 ---
 
@@ -520,6 +523,7 @@ than implied.
 | Audit of calls | implemented | account, method, caller, outcome |
 | Vault, X25519 and AES-256-GCM | implemented | keygen, verify and rotate; one key per installation |
 | Discovery endpoint | implemented | `GET /v1/discovery`, JSON and text |
+| Idempotency per request | not in 0.2 | a retry after a crash can repeat a call |
 | Signed calls with nonce | in progress | scoped tokens shipped; body signature next |
 
 The protocol is specified carefully because the failure is expensive: a password handed to an agent cannot be
