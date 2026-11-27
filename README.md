@@ -33,7 +33,7 @@ may choose, and we argue that existing tool-calling protocols sit above this lay
 6. [Implementation](#6-implementation)
 7. [Conformance](#7-conformance)
 8. [Status of this document](#8-status-of-this-document)
-9. [Relationship to MCP and other transports](#9-relationship-to-mcp-and-other-transports)
+9. [Beyond agents](#9-beyond-agents)
 
 ---
 
@@ -442,7 +442,6 @@ than implied.
 | Vault with key rotation | in progress | single-key encryption shipped; versioned rotation next |
 | Pairing with workspace scope | in progress | embedded mode complete; remote handshake next |
 | Signed calls with nonce | in progress | scoped run passes shipped; body signature next |
-| MCP and REST adapters | intended | adapters only; not part of the protocol |
 
 The protocol is specified carefully because the failure is expensive: a password handed to an agent cannot be
 taken back. A feature written down but not built is a promise; a feature built but not written down is a
@@ -450,59 +449,25 @@ rumour. The table keeps both visible.
 
 ---
 
-## 9. Relationship to MCP and other transports
+## 9. Beyond agents
 
-The choice is usually put as a binary: give the agent a password, or put a tool-calling server in front of
-the service. They are not alternatives. They answer different questions, and a real deployment needs both.
+Nothing in this protocol assumes a model. A nightly job that publishes a report, a back end that sends an
+invoice when an order ships, a command line a person uses by hand: each of them is a caller, and each is
+authorized and recorded in the same way.
 
-**Table 4. Two layers, two questions.**
+The agent case is what forced the design, because an agent can invent a call and a model cannot be trusted
+with a key. But the rules it produced are not agent rules. A deterministic program that knows exactly which
+method it wants benefits from the same three properties: the secret stays in the vault, the method is
+declared rather than coded, and the call leaves a record.
 
-| Question | Answered by a tool-calling protocol | Answered by MICP |
-|---|---|---|
-| How does a tool reach the model? | yes, this is its whole subject | not its subject |
-| Who holds the provider credential? | left to each server | the vault, outside the client |
-| May this agent call this method on this account? | per server, at most | per account and per method |
-| What happened, and with whose key? | whatever the client keeps | a record written by the server |
-| What happens when a key is rotated? | not addressed | re-encryption, no re-entry |
-| What if the same call is retried after a crash? | not addressed | idempotent per run and attempt |
+A caller needs two things: the server's address and a credential. It does not need a model, a framework, or an
+SDK. That is why the protocol is specified as HTTP and JSON: a cron entry with `curl` is a first-class caller,
+and so is a compiler with a generated client.
 
-A tool-calling protocol standardises how intent travels: discovery, schemas, invocation, streaming. It says
-nothing about who holds the password, on purpose, because that depends on the deployment and not on the wire.
-In practice every server decides for itself, usually by putting the API key in its own configuration file,
-with the full power of the account, and with logs the client may or may not keep.
-
-MICP takes the other axis. It does not care how the call travels: the three transports it allows are the ones
-providers already use. What it standardises is *authority*: which accounts exist, which methods each one
-offers, who may call which, where the secret lives, and what record remains.
-
-### 9.1 Why one does not replace the other
-
-Replacing a tool-calling protocol with MICP would mean rebuilding what it already does well. Replacing MICP
-with one would leave three questions open, and every deployment would answer them differently. The two fit
-together, and both directions are in use:
-
-- **MCP as an adapter over MICP.** A small server exposes the methods a caller is granted as tools. The
-  client speaks MCP; the credentials never enter the MCP server's configuration, because it holds none: it
-  forwards to the integration server, which does.
-- **MICP as the substrate for adapters.** REST, OpenAPI, a command line or a message queue consume the same
-  declarations. The integration server does not know which of them called.
-
-![MCP as an adapter over MICP](images/fig8.png)
-
-*Figure 8. The adapter pattern. The MCP server is stateless with respect to credentials: it translates a tool
-call into a signed request, and the integration server decides whether it may proceed.*
-
-### 9.2 When a tool-calling protocol alone is enough
-
-If there is one account, one agent, one operator, and no audit obligation, a tool-calling server with a key
-in its configuration is a reasonable engineering decision. The protocol in this paper earns its place at the
-point where a second account appears, or a second agent, or a third party who asks who used the key. That is
-also the point at which the ad-hoc answer stops being auditable, and the cost of retrofitting it is paid in
-incidents rather than in code.
-
-> **The claim, in one sentence.** A tool-calling protocol moves the credential out of the prompt; MICP moves
-> it out of the caller, and puts a decision and a record in between. The first is necessary. The second is
-> what makes the first safe to operate.
+The same holds for the other direction. A deployment that already has its own scheduler does not have to adapt
+to an agent framework to use this: it calls
+`POST /v1/call/{integration}.{account}.{method}` and reads `{ok, output}`. Whether a model, a queue worker or
+a person asked for it is a detail the server records and does not need to know.
 
 ---
 
