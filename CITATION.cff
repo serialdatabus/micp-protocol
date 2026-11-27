@@ -4,7 +4,7 @@ title: "MICP: Managed Integration & Credential Protocol"
 abstract: "A declarative protocol for giving software agents access to real services without handing them the credentials. Integrations declare methods, accounts hold secrets encrypted under a single vault key, grants decide per account and per method, and every call is signed, scoped and recorded."
 version: "0.1"
 date-released: "2026-11-26"
-license: CC-BY-4.0
+license: LicenseRef-Proprietary
 url: "https://micpprotocol.com"
 repository-code: "https://github.com/serialdatabus/micp-protocol"
 type: software

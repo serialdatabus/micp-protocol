@@ -2,7 +2,7 @@
 
 **Integrations for agents, without lending them the keys.**
 
-Version 0.1 · 26 November 2026 · Elizeu Carlos · [CC BY 4.0](LICENSE)
+Version 0.1 · 26 November 2026 · Elizeu Carlos · All rights reserved
 
 Project page: **https://micpprotocol.com**
 
@@ -354,10 +354,19 @@ A `CITATION.cff` file is included, so GitHub shows a "Cite this repository" butt
 |---|---|---|
 | 0.1 | 26 Nov 2026 | First public draft: nine sections, seven figures, twelve conformance checks. |
 
-## License
+## License and terms of use
 
-The specification text and figures in this repository are licensed under
-[Creative Commons Attribution 4.0 International](LICENSE) (CC BY 4.0).
+**Copyright (c) 2026 Elizeu Carlos. All rights reserved.**
 
-You may quote, reproduce and implement this specification, provided you attribute it. Implementations may
-carry a different license of their own; the one above covers this document, not software that follows it.
+This specification, its text, figures and diagrams may not be reproduced,
+distributed, published, modified, translated or adapted, in whole or in
+substantial part, without prior written permission. Brief quotation (up to 150
+words) for review, commentary or academic citation is permitted, provided the
+author and source are identified and a link to https://micpprotocol.com is
+included. See [LICENSE](LICENSE) for the full notice.
+
+Quoting this document in an article, a paper or a review is welcome. Republishing
+it, redistributing it, or building a derived specification from it is not.
+
+Independent implementations of the protocol require a separate licence:
+hello@micpprotocol.com
