@@ -4,7 +4,7 @@
 
 Version 0.2 · 26 November 2026 · Elizeu Carlos · All rights reserved
 
-Project page: **https://micpprotocol.com**  
+Project page: **https://micpprotocol.com**
 Build an integration in the browser: **https://micpprotocol.com/builder.html**
 
 ---
@@ -54,39 +54,36 @@ client or in what language.
 
 ## 1. Introduction
 
-An agent needs to send an email. The shortest path is to paste an application password into the
-conversation. It works, and for about three weeks nobody notices anything.
+An agent needs to send an email. The easy way is to paste an application password into the chat. It works.
+For about three weeks, nobody notices anything.
 
-Then the account is used by someone else, or the password is rotated at the provider, or a support ticket is
-filed with the transcript attached. The credential now exists in four places: the conversation, the model
-provider's logs, the client's history, and whatever the user pasted it into. None of those places is the
-place it should be.
+Then the account is used by someone else. Or the password is changed at the provider. Or a support ticket
+arrives with the whole conversation attached. The password now lives in four places: the chat, the
+provider's logs, the client's history, and whatever the user pasted it into. None of them is where it should
+be.
 
-The same scene repeats with a second problem behind the first. A credential is not a permission. An app
-password issued to send mail is also a key to read every message in the mailbox, delete folders and change
-the account's settings. Delegating "send this email" delegates considerably more than the sentence suggests.
-And because the credential travels with the agent, there is no point at which a system can ask whether *this
-particular action* was allowed.
+There is a second problem behind the first. A password is not a permission. A mail password that lets you
+send is also a key to read every message, delete folders and change settings. Saying *send this email* hands
+over much more than the sentence says. And because the password travels with the agent, nothing can check
+whether this one action was allowed.
 
-Existing tool-calling protocols improve the picture by moving the credential out of the prompt and behind a
-tool. That solves the first problem. The second remains: a tool is either visible to the model or it is not,
-and the notion of who may call what lives in the client, if it exists at all. The third, a record of what
-happened, becomes whatever the client chose to keep.
+Tool-calling protocols made this better. They move the password out of the chat and behind a tool. That fixes
+the first problem. The second stays: a tool is either visible to the model or it is not, and *who may call
+what* lives in the client, if it lives anywhere. The record of what happened is whatever the client chose to
+keep.
 
-MICP is an attempt to specify the layer underneath. It assumes that the interesting unit is not the
-integration but the *method on a specific account*, that credentials belong to a vault rather than to a
-caller, and that permission is data, not a property of a key.
+MICP describes the layer below. The unit that matters is not the integration but the *method on a specific
+account*. Passwords belong to a vault, not to a caller. Permission is data, not a property of a key.
 
-Section 2 gives the model. Section 3 describes the key hierarchy. Section 4 specifies a call. Section 5
-covers discovery and why it must be filtered. Section 6 is an implementation guide for a client that exposes
-these integrations to a model. Section 7 lists the conformance checks, Section 8 separates what is
-implemented from what is intended, and Section 9 relates this layer to existing tool-calling standards.
+Section 2 gives the model. Section 3 covers keys. Section 4 shows a call. Section 5 explains discovery.
+Section 6 describes how to build a client. Section 7 lists the conformance checks. Section 8 separates what
+is implemented from what is planned. Section 9 relates this layer to other tool-calling standards.
 
 ---
 
 ## 2. The model
 
-Three nouns, one relation each:
+Three nouns, and one rule for each:
 
 - An **integration** is a type, such as `gmail`, `stripe` or `telegram`. It declares the methods this service
   can perform and how a credential for it is obtained.
@@ -100,9 +97,9 @@ Three nouns, one relation each:
 *Figure 2. The three nouns. Twenty accounts sharing six methods produce six contracts, not a hundred and
 twenty. And a method is enabled per account, so one mailbox may send while another may also read.*
 
-A method is *declarative*: a transport, a request template, an input schema and an output map. It contains
-no code. The executor is written once and interprets the declaration, which is why adding an integration is
-a configuration change rather than a deployment, and why a pack can be reviewed by reading it.
+A method is *declarative*: an endpoint, a request template, an input schema and an output map. It contains no
+code. The executor is written once and reads the declaration, which is why adding an integration is a
+configuration change and not a deployment, and why a pack can be reviewed by reading it.
 
 ```json
 {
@@ -161,8 +158,8 @@ a configuration change rather than a deployment, and why a pack can be reviewed 
 }
 ```
 
-Configuration lives at three levels, and the method is written once for all of them. That is what makes
-a second account a row of data instead of a second integration.
+Configuration lives at three levels, and the method is written once for all of them. That is what makes a
+second account a row of data instead of a second integration.
 
 **Table 2. Where a value comes from.**
 
@@ -178,17 +175,16 @@ The rule for placing a value is one question: *if this appeared in a screenshot 
 would it grant access?* If yes, it belongs in the vault. If no, it belongs to the account. Nothing else
 decides.
 
-Two consequences follow, and they carry most of the argument. First, the account is a *parameter* of the
-method, never a free-form string: the caller chooses from a list, so the model cannot invent a mailbox.
-Second, the secret is a *reference*, never a value: the pack is shareable, reviewable and safe to store in a
-repository.
+Two consequences follow. First, the account is a *parameter* of the method, never a free string: the caller
+picks from a list, so a model cannot invent a mailbox. Second, a secret is a *reference*, never a value: the
+pack can be shared, reviewed and kept in a repository.
 
 ---
 
 ## 3. Keys
 
-There are two kinds of key in MICP, and they answer different questions. Provider credentials belong to the
-services and are numerous. The vault key belongs to the installation and is singular.
+MICP has two kinds of key, and they answer different questions. Provider keys belong to the services, and
+there are many. The vault key belongs to the installation, and there is one.
 
 **Table 1. Keys in a MICP deployment.**
 
@@ -198,10 +194,11 @@ services and are numerous. The vault key belongs to the installation and is sing
 | Account credential | one per account | what the provider issued | only on the outbound call |
 | Access token | one per agent or run | who may call which method | to that caller |
 
-The vault key is the only secret an operator has to keep, rotate and back up. It authenticates nothing and
-authorises nothing: it opens a store. Permission is decided elsewhere, in the grant table, because a key that
-decides policy is a key that must be edited to change policy, and that is how permissions end up spread
-across files.
+The vault key is the only secret an operator has to keep, rotate and back up. It does not authenticate
+anyone and it does not grant anything: it opens a store. Permission is decided in the grant table, because a
+key that decides policy has to be edited to change policy, and that is how permissions end up spread across
+files. It is a plain pair of keys: one private key that decrypts, one public key that encrypts. Two files,
+two lines of configuration, no special format.
 
 ![The vault key sits outside the database](images/fig3.png)
 
@@ -218,7 +215,7 @@ account therefore fails to decrypt, which turns a database write into a non-even
 
 *Figure 4. The plaintext exists between iii and iv, in memory, for the duration of one call.*
 
-Rotation replaces the vault key without re-asking anyone for anything: a new key is generated alongside the
+Rotation replaces the vault key without asking anyone for anything: a new key is generated alongside the
 old, new writes use it, a background pass re-encrypts the remaining rows, and the old key is retired when no
 row refers to it. Rotation bounds the damage of a key copied without the operator's knowledge; it does not
 stop an attack in progress, which is a matter for revocation.
@@ -227,14 +224,12 @@ stop an attack in progress, which is a matter for revocation.
 
 ## 4. Calls
 
-A call carries a method, an account, the inputs, and a signature over the exact bytes. Two questions are
-answered by two different mechanisms, and conflating them produces systems with authentication and no
-authorisation.
+A call carries a method, an account, the inputs, and a signature over the exact bytes. Two questions get two
+different answers, and mixing them produces systems that authenticate and never authorise.
 
-The *signature* answers whether the request is authentic and unmodified. It covers the body together with a
-timestamp and a nonce, so a replay is both detectable and useless. The *grant* answers whether this caller
-may perform this method on this account. A valid signature from a caller without a grant is a well-formed
-refusal.
+The *signature* says whether the request is genuine and unchanged. It covers the body, a timestamp and a
+nonce, so a replay is visible and useless. The *grant* says whether this caller may run this method on this
+account. A good signature from a caller without a grant is a well-formed refusal.
 
 ```http
 POST /v1/call/email.elizeu.send
@@ -253,20 +248,19 @@ server, carrying the provider credential, never the vault key.*
 
 Errors are typed rather than free text: invalid input, vault unavailable, not authorised, provider failure,
 idempotency conflict. A caller can therefore react deterministically, and an operator can count failures by
-kind. Idempotency is keyed by the caller's request identifier and attempt, so a retry after a crash does not send the same email twice.
-
----
+kind. Idempotency is keyed by the caller's request identifier and attempt, so a retry after a crash does not
+send the same email twice.
 
 ### 4.1 Three calls, end to end
+
+The call carries the method in its name. Three groups, always in this order:
+`integration.account.method`. The body carries only the inputs.
 
 ![Two hops](images/fig6.png)
 
 *Figure 6. Two hops, never more. The caller speaks HTTP to the integration server; the server speaks the
 provider's own transport. Between them sit the grant, the vault and the rendered template, and the key never
 comes back up the wire.*
-
-The call carries the method in its name. Three groups, always in this order:
-`integration.account.method`. The body carries only the inputs.
 
 ```http
 POST /v1/call/email.elizeu.send
@@ -327,17 +321,41 @@ POST /v1/call/telegram.canal_curso.send
 Nothing in these three calls required a line of code per integration. What changed between them was data: an
 override here, a custom field there, a different transport in the third.
 
+### 4.2 What comes back
+
+Describing the response is optional. If a method has no `output`, the provider's answer comes back as it
+arrived. That is the default, and it is what you want while you are building the integration.
+
+If the method declares `output`, only the listed fields come back, each with a type:
+
+```json
+"output": {
+  "message_id": { "path": "body.id", "type": "text", "required": true },
+  "accepted":   { "path": "smtp.accepted", "type": "list" }
+}
+```
+
+`output` chooses and checks. It does not transform: no renaming, no date arithmetic, no joins. If you need
+that, do it where you call, not inside the pack.
+
+One exception is worth spelling out. A few services return a *new* credential in the response, a refresh
+token being the usual case. If the answer carries a field whose name matches a secret already stored for that
+account, the server stores it in the vault, encrypted, and returns `{"stored": true}` in its place. The value
+never leaves the server. Most integrations never do this, and for them it costs nothing. Large responses are
+cut at 64 KB.
+
+---
+
 ## 5. Discovery
 
-A server that exports what it has is a server that exports too much. Discovery in MICP is filtered by the
-same grants that authorise calls, and the filtering happens on the server, before the caller sees anything.
+A server that exports everything exports too much. Discovery uses the same grants as calls, and the filtering
+happens on the server, before the caller sees anything.
 
-A method the caller cannot use is not refused at execution time; it does not appear. The difference is not
-cosmetic. Rejection tells an agent that something exists and invites a retry with a different argument;
-invisibility leaves nothing to attempt. It also keeps prompts small, which is the practical reason many
-deployments end up doing this anyway.
+A method the caller cannot use is not refused later. It never appears. The difference is not cosmetic. A
+refusal tells the agent that something exists and invites a second attempt; invisibility leaves nothing to
+try. It also keeps prompts small, which is why most deployments end up doing this anyway.
 
-![Three filters between catalogue and agent](images/fig6.png)
+![Three filters between catalogue and agent](images/fig7.png)
 
 *Figure 7. Two filters in series. Neither happens in the model, and neither requires the caller to be
 trusted.*
@@ -349,8 +367,8 @@ and shown in a user interface. It is a menu, not a key.
 
 ## 6. Implementation
 
-A model does not require a protocol in order to receive tools. It requires a name, a description and a JSON
-schema. Whoever assembles that list is the client, and that assembly is the work this section specifies.
+A model does not need a protocol to get tools. It needs a name, a description and a JSON schema. Whoever
+builds that list is the client, and building it is the work this section describes.
 
 1. **Place the vault.** In the same process, or on a separate integration server. If separate, the client
    records a URL and the two sides pair once with a short-lived code that carries the workspace scope.
@@ -366,10 +384,24 @@ schema. Whoever assembles that list is the client, and that assembly is the work
 6. **Install the pack.** An integration is one file on the server. Drop `packs/<integration>.micp.json` and
    reload: nothing else to build, nothing to deploy.
 
-Announcing everything is simpler to implement and easier for a model to use, at a measurable cost: each
-schema occupies context on every call. The trade-off is a product decision, not a protocol one, and it is
-reversible per workspace, which is the reason enablement is a property of the workspace rather than of the
-installation.
+Announcing everything is simpler to build and easier for a model to use. It also costs context on every call.
+That is a product decision, not a protocol one, and it can be changed per workspace, which is why enablement
+belongs to the workspace and not to the installation.
+
+### 6.1 Building an integration
+
+An integration is a file, not a program. The pack says what the methods are; the server reads it and does the
+work. There is no build step, no package to install and no code to review line by line: you read the file,
+and you know what the integration can do.
+
+To make that concrete, there is a builder at
+[micpprotocol.com/builder.html](https://micpprotocol.com/builder.html). Four steps: the integration and its
+defaults, the accounts, the methods, and the JSON. It shows the request that will be sent, with the secret
+masked, and gives you the file to drop on your server.
+
+What it will not do is the interesting part. There are no conditions, no loops, no expressions and no code
+inside a pack. If a service needs logic to be called, it needs a new transport or it waits. A refusal is
+easier to audit than a language.
 
 ---
 
@@ -395,8 +427,8 @@ item can be checked by reading a pack or by issuing a request.
 
 ## 8. Status of this document
 
-This document describes a protocol that is partly implemented. The distinction matters, so it is stated
-rather than implied.
+This document describes a protocol that is partly implemented. The difference matters, so it is stated rather
+than implied.
 
 **Table 3. Implemented and intended, as of v0.2.**
 
@@ -412,13 +444,16 @@ rather than implied.
 | Signed calls with nonce | in progress | scoped run passes shipped; body signature next |
 | MCP and REST adapters | intended | adapters only; not part of the protocol |
 
+The protocol is specified carefully because the failure is expensive: a password handed to an agent cannot be
+taken back. A feature written down but not built is a promise; a feature built but not written down is a
+rumour. The table keeps both visible.
+
 ---
 
 ## 9. Relationship to MCP and other transports
 
-The choice is usually presented as a binary: hand the agent a credential, or put a tool-calling server in
-front of the service. We argue that these are not alternatives. They answer different questions, and a
-serious deployment ends up needing both answers.
+The choice is usually put as a binary: give the agent a password, or put a tool-calling server in front of
+the service. They are not alternatives. They answer different questions, and a real deployment needs both.
 
 **Table 4. Two layers, two questions.**
 
@@ -431,24 +466,20 @@ serious deployment ends up needing both answers.
 | What happens when a key is rotated? | not addressed | re-encryption, no re-entry |
 | What if the same call is retried after a crash? | not addressed | idempotent per run and attempt |
 
-A tool-calling protocol standardises the *transport of intent*: discovery, schemas, invocation, streaming. It
-deliberately says nothing about credential custody, because custody is a property of the deployment, not of
-the wire. The consequence is visible in practice: every server implementation decides for itself where the
-API key lives, usually in its own configuration file, with the full authority of the account it represents,
-and with logs that the client may or may not keep.
+A tool-calling protocol standardises how intent travels: discovery, schemas, invocation, streaming. It says
+nothing about who holds the password, on purpose, because that depends on the deployment and not on the wire.
+In practice every server decides for itself, usually by putting the API key in its own configuration file,
+with the full power of the account, and with logs the client may or may not keep.
 
-MICP occupies the other axis. It is transport-agnostic by construction, since the three transports it permits
-are already the ones providers use. What it standardises is *authority*: which accounts exist, which methods
-each account offers, who may call which of them, where the secret is stored, and what record remains.
+MICP takes the other axis. It does not care how the call travels: the three transports it allows are the ones
+providers already use. What it standardises is *authority*: which accounts exist, which methods each one
+offers, who may call which, where the secret lives, and what record remains.
 
 ### 9.1 Why one does not replace the other
 
-Replacing a tool-calling protocol with MICP would mean rebuilding the parts it already does well: the client
-ecosystem, the transport negotiation, resources and prompts, and the existing servers that speak it.
-Replacing MICP with a tool-calling protocol would mean leaving three questions unanswered, and the answers
-would have to be reinvented per deployment, differently each time.
-
-The two compose in either direction, and both directions are in use:
+Replacing a tool-calling protocol with MICP would mean rebuilding what it already does well. Replacing MICP
+with one would leave three questions open, and every deployment would answer them differently. The two fit
+together, and both directions are in use:
 
 - **MCP as an adapter over MICP.** A small server exposes the methods a caller is granted as tools. The
   client speaks MCP; the credentials never enter the MCP server's configuration, because it holds none: it
@@ -456,7 +487,7 @@ The two compose in either direction, and both directions are in use:
 - **MICP as the substrate for adapters.** REST, OpenAPI, a command line or a message queue consume the same
   declarations. The integration server does not know which of them called.
 
-![MCP as an adapter over MICP](images/fig7.png)
+![MCP as an adapter over MICP](images/fig8.png)
 
 *Figure 8. The adapter pattern. The MCP server is stateless with respect to credentials: it translates a tool
 call into a signed request, and the integration server decides whether it may proceed.*
@@ -477,31 +508,29 @@ incidents rather than in code.
 
 ## How to cite
 
-> Carlos, E. (2026). *MICP: Managed Integration & Credential Protocol* (Version 0.1). Zenodo.
+> Carlos, E. (2026). *MICP: Managed Integration & Credential Protocol* (Version 0.2). Zenodo.
 > https://doi.org/10.5281/zenodo.XXXXXXX
 
-Version 0.2 is the current draft. A `CITATION.cff` file is included, so GitHub shows a "Cite this repository" button.
+Version 0.2 is the current draft. A `CITATION.cff` file is included, so GitHub shows a "Cite this repository"
+button.
 
 ## Revision history
 
 | Version | Date | Changes |
 |---|---|---|
 | 0.1 | 26 Nov 2026 | First public draft: nine sections, seven figures, twelve conformance checks. |
-| 0.2 | 26 Nov 2026 | Methods declare `endpoint` and a `request` template. Three levels of configuration (`defaults`, `account`, vault) and five template namespaces. Calls use `integration.account.method`. Added section 4.1 with three end-to-end examples, and the browser builder. |
+| 0.2 | 26 Nov 2026 | Methods declare `endpoint` and a `request` template. Three levels of configuration (`defaults`, `account`, vault) and five template namespaces. Calls use `integration.account.method`. Optional `output`. Added 4.1 (three end-to-end examples), 4.2 (responses), 6.1 (building), and the browser builder. |
 
 ## License and terms of use
 
 **Copyright (c) 2026 Elizeu Carlos. All rights reserved.**
 
-This specification, its text, figures and diagrams may not be reproduced,
-distributed, published, modified, translated or adapted, in whole or in
-substantial part, without prior written permission. Brief quotation (up to 150
-words) for review, commentary or academic citation is permitted, provided the
-author and source are identified and a link to https://micpprotocol.com is
-included. See [LICENSE](LICENSE) for the full notice.
+This specification, its text, figures and diagrams may not be reproduced, distributed, published, modified,
+translated or adapted, in whole or in substantial part, without prior written permission. Brief quotation (up
+to 150 words) for review, commentary or academic citation is permitted, provided the author and source are
+identified and a link to https://micpprotocol.com is included. See [LICENSE](LICENSE) for the full notice.
 
-Quoting this document in an article, a paper or a review is welcome. Republishing
-it, redistributing it, or building a derived specification from it is not.
+Quoting this document in an article, a paper or a review is welcome. Republishing it, redistributing it, or
+building a derived specification from it is not.
 
-Independent implementations of the protocol require a separate licence:
-hello@micpprotocol.com
+Independent implementations of the protocol require a separate licence: hello@micpprotocol.com
