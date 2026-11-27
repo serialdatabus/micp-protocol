@@ -381,7 +381,7 @@ cut at 64 KB.
 
 ## 5. Discovery
 
-A server that exports everything exports too much. Discovery uses the same grants as calls, and the filtering
+A server that exports everything exports too much. Discovery answers only with what the server has enabled, and the filtering
 happens on the server, before the caller sees anything.
 
 A method the caller cannot use is not refused later. It never appears. The difference is not cosmetic. A
@@ -452,7 +452,7 @@ builds that list is the client, and building it is the work this section describ
    records the server's address and the client pairs once with a short-lived code.
 2. **Expose discovery.** The server answers what is installed and enabled: accounts, methods, input and
    output schemas, filtered as in Section 5.
-3. **Cross with grants.** Keep only what this agent may call. This happens before the model is prompted, not
+3. **Cross with enablement.** Keep only the methods enabled for that account. This happens before the model is prompted, not
    after it tries.
 4. **Translate into tools.** One tool per account and method, with a stable name, a natural-language
    description and the fields as a schema. The account is folded into the name so that it cannot be invented.
