@@ -2,9 +2,10 @@
 
 **Integrations for agents, without lending them the keys.**
 
-Version 0.1 · 26 November 2026 · Elizeu Carlos · All rights reserved
+Version 0.2 · 26 November 2026 · Elizeu Carlos · All rights reserved
 
-Project page: **https://micpprotocol.com**
+Project page: **https://micpprotocol.com**  
+Build an integration in the browser: **https://micpprotocol.com/builder.html**
 
 ---
 
@@ -104,18 +105,78 @@ no code. The executor is written once and interprets the declaration, which is w
 a configuration change rather than a deployment, and why a pack can be reviewed by reading it.
 
 ```json
-{ "integration": "gmail",
+{
+  "micp": "0.2",
+  "integration": "email",
+  "description": "Send email from a mailbox.",
+
+  "defaults": {
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 465,
+    "tls": "implicit"
+  },
+
   "accounts": [
-    { "account": "elizeu",  "enabled_methods": ["send"] },
-    { "account": "support", "enabled_methods": ["send", "read", "mark_read"] }
+    { "account": "elizeu",
+      "config":  { "email": "elizeu@exemplo.pt" },
+      "custom":  { "assinatura": "Elizeu Carlos" },
+      "secrets": { "app_password": "{{vault:email.elizeu.app_password}}" } },
+
+    { "account": "suporte",
+      "config":  { "email": "suporte@exemplo.pt", "smtp_port": 587, "tls": "starttls" },
+      "custom":  { "assinatura": "Equipa de suporte" },
+      "secrets": { "app_password": "{{vault:email.suporte.app_password}}" } }
   ],
+
   "methods": {
-    "send": { "transport": "smtp",
-              "fields": { "account": "account", "to": "email", "subject": "text", "body": "text" },
-              "secrets": { "password": "$vault:app_password" },
-              "output": { "sent": "boolean", "id": "text" } }
-  } }
+    "send": {
+      "description": "Send an email from the selected account.",
+      "transport": "smtp",
+
+      "endpoint": {
+        "host": "{{defaults.smtp_host}}",
+        "port": "{{account.smtp_port | default:defaults.smtp_port}}",
+        "tls":  "{{account.tls       | default:defaults.tls}}"
+      },
+
+      "request": {
+        "auth":    { "user": "{{account.email}}", "password": "{{secret.app_password}}" },
+        "from":    "{{account.email}}",
+        "to":      "{{input.to}}",
+        "subject": "{{input.subject}}",
+        "body":    "{{input.body}}\n\n{{account.custom.assinatura}}"
+      },
+
+      "fields": {
+        "to":      { "type": "email", "required": true },
+        "subject": { "type": "text",  "required": true, "max": 200 },
+        "body":    { "type": "text",  "required": true }
+      },
+
+      "output": { "sent": "constant:true", "message_id": "smtp.message_id" }
+    }
+  },
+
+  "destinations": ["{{defaults.smtp_host}}"]
+}
 ```
+
+Configuration lives at three levels, and the method is written once for all of them. That is what makes
+a second account a row of data instead of a second integration.
+
+**Table 2. Where a value comes from.**
+
+| In the template | Source | Visible to |
+|---|---|---|
+| `{{defaults.x}}` | the integration defaults, shared by every account | everyone |
+| `{{account.x}}` | a field of the account, in `config` | discovery, UI, logs |
+| `{{account.custom.x}}` | a user-defined extra, in `custom` | discovery, UI, logs |
+| `{{secret.x}}` | the vault, decrypted for the duration of the call | nobody |
+| `{{input.x}}` | a field declared in `fields` and sent by the caller | the caller |
+
+The rule for placing a value is one question: *if this appeared in a screenshot or in the discovery response,
+would it grant access?* If yes, it belongs in the vault. If no, it belongs to the account. Nothing else
+decides.
 
 Two consequences follow, and they carry most of the argument. First, the account is a *parameter* of the
 method, never a free-form string: the caller chooses from a list, so the model cannot invent a mailbox.
@@ -176,13 +237,13 @@ may perform this method on this account. A valid signature from a caller without
 refusal.
 
 ```http
-POST /methods/gmail.send
-Authorization: Bearer <run pass>                 # who is calling, scoped, 15 minutes
-X-Micp-Run:    r_8f21
-X-Micp-Ts:     1795649100
-X-Micp-Nonce:  7c1a9f
+POST /v1/call/email.elizeu.send
+Authorization: Bearer <access token>       # who is calling, and only that
+Content-Type: application/json
 
-{"account":"support","to":"joao@example.com","subject":"Report","body":"Attached."}
+{ "input": { "to": "joao@exemplo.pt",
+             "subject": "Relatório",
+             "body": "Segue em anexo." } }
 ```
 
 ![Sequence of a call](images/fig5.png)
@@ -192,9 +253,73 @@ server, carrying the provider credential, never the vault key.*
 
 Errors are typed rather than free text: invalid input, vault unavailable, not authorised, provider failure,
 idempotency conflict. A caller can therefore react deterministically, and an operator can count failures by
-kind. Idempotency is per run, node and attempt, so a retry after a crash does not send the same email twice.
+kind. Idempotency is keyed by the caller's request identifier and attempt, so a retry after a crash does not send the same email twice.
 
 ---
+
+### 4.1 Three calls, end to end
+
+The call carries the method in its name. Three groups, always in this order:
+`integration.account.method`. The body carries only the inputs.
+
+```http
+POST /v1/call/email.elizeu.send
+Content-Type: application/json
+
+{ "input": { "to": "joao@exemplo.pt",
+             "subject": "Relatório",
+             "body": "Segue em anexo." } }
+```
+
+What the integration server does with it, with the secret masked:
+
+```
+defaults.smtp_host            smtp.gmail.com
+account.smtp_port             465        (from defaults, no override)
+account.email                 elizeu@exemplo.pt
+account.custom.assinatura     Elizeu Carlos
+secret.app_password           ***
+
+CONNECT smtp.gmail.com:465  implicit TLS
+AUTH  elizeu@exemplo.pt  ***
+MAIL FROM: elizeu@exemplo.pt
+RCPT TO:   joao@exemplo.pt
+DATA
+  Subject: Relatório
+
+  Segue em anexo.
+
+  Elizeu Carlos
+```
+
+The same method, called on the other account, produces a different request with no change to the pack: the
+second account overrides `smtp_port` and `tls`, and brings its own signature and its own secret.
+
+```http
+POST /v1/call/email.suporte.send
+{ "input": { "to": "cliente@exemplo.pt", "subject": "Bilhete #4821", "body": "Em análise." } }
+
+CONNECT smtp.gmail.com:587  STARTTLS      <-- override da conta
+AUTH  suporte@exemplo.pt  ***
+```
+
+A third call, on a service that uses an HTTP API and a custom field, shows the same shape applied elsewhere.
+Here the pack reads a destination from `defaults`, a channel from the account, a tone from the user-defined
+extras, a token from the vault, and three fields from the caller.
+
+```http
+POST /v1/call/telegram.canal_curso.send
+{ "input": { "text": "Episódio 12 no ar", "silent": false } }
+
+-> POST https://api.telegram.org/bot***/sendMessage
+  { "chat_id": "-100123456",                 <- {{account.chat_id}}
+    "text": "Episódio 12 no ar",             <- {{input.text}}
+    "parse_mode": "Markdown",                <- {{account.custom.formato}}
+    "disable_notification": false }          <- {{input.silent}}
+```
+
+Nothing in these three calls required a line of code per integration. What changed between them was data: an
+override here, a custom field there, a different transport in the third.
 
 ## 5. Discovery
 
@@ -229,8 +354,11 @@ schema. Whoever assembles that list is the client, and that assembly is the work
    after it tries.
 4. **Translate into tools.** One tool per account and method, with a stable name, a natural-language
    description and the fields as a schema. The account is folded into the name so that it cannot be invented.
-5. **Forward signed calls.** When the model selects a tool, forward the inputs with a signature, verify the
-   result and return the mapped output.
+5. **Forward calls.** When the model selects a tool, send
+   `POST /v1/call/{integration}.{account}.{method}` with the inputs, verify the result and return the mapped
+   output.
+6. **Install the pack.** An integration is one file on the server. Drop `packs/<integration>.micp.json` and
+   reload: nothing else to build, nothing to deploy.
 
 Announcing everything is simpler to implement and easier for a model to use, at a measurable cost: each
 schema occupies context on every call. The trade-off is a product decision, not a protocol one, and it is
@@ -241,7 +369,7 @@ installation.
 
 ## 7. Conformance
 
-An implementation conforms to MICP v0.1 if it satisfies the following. The list is deliberately short: every
+An implementation conforms to MICP v0.2 if it satisfies the following. The list is deliberately short: every
 item can be checked by reading a pack or by issuing a request.
 
 1. A method is one operation, with an input and an output schema.
@@ -264,7 +392,7 @@ item can be checked by reading a pack or by issuing a request.
 This document describes a protocol that is partly implemented. The distinction matters, so it is stated
 rather than implied.
 
-**Table 2. Implemented and intended, as of v0.1.**
+**Table 3. Implemented and intended, as of v0.2.**
 
 | Element | State | Note |
 |---|---|---|
@@ -286,7 +414,7 @@ The choice is usually presented as a binary: hand the agent a credential, or put
 front of the service. We argue that these are not alternatives. They answer different questions, and a
 serious deployment ends up needing both answers.
 
-**Table 3. Two layers, two questions.**
+**Table 4. Two layers, two questions.**
 
 | Question | Answered by a tool-calling protocol | Answered by MICP |
 |---|---|---|
@@ -346,13 +474,14 @@ incidents rather than in code.
 > Carlos, E. (2026). *MICP: Managed Integration & Credential Protocol* (Version 0.1). Zenodo.
 > https://doi.org/10.5281/zenodo.XXXXXXX
 
-A `CITATION.cff` file is included, so GitHub shows a "Cite this repository" button.
+Version 0.2 is the current draft. A `CITATION.cff` file is included, so GitHub shows a "Cite this repository" button.
 
 ## Revision history
 
 | Version | Date | Changes |
 |---|---|---|
 | 0.1 | 26 Nov 2026 | First public draft: nine sections, seven figures, twelve conformance checks. |
+| 0.2 | 26 Nov 2026 | Methods declare `endpoint` and a `request` template. Three levels of configuration (`defaults`, `account`, vault) and five template namespaces. Calls use `integration.account.method`. Added section 4.1 with three end-to-end examples, and the browser builder. |
 
 ## License and terms of use
 
