@@ -15,8 +15,8 @@ Software agents are now asked to act on real systems: send mail, publish video, 
 spreadsheet. The usual way to grant that access is to hand the agent a credential (a token, a password, an
 API key) and to hope that the transcript stays private. This paper describes MICP, a declarative protocol in
 which an agent never holds a credential. Integrations declare what exists; accounts hold the secrets,
-encrypted under a single vault key; grants decide, per account and per method, who may call what; and every
-call is signed, scoped and recorded. We separate what a protocol must specify from what an implementation
+encrypted under a single vault key and enable the methods they may use; and every call is scoped and
+recorded. We separate what a protocol must specify from what an implementation
 may choose, and we argue that existing tool-calling protocols sit above this layer rather than replacing it.
 
 **Keywords:** agent tooling, credential management, least privilege, declarative integration, audit
@@ -39,8 +39,8 @@ may choose, and we argue that existing tool-calling protocols sit above this lay
 
 ![The system at a glance](images/fig1.png)
 
-*Figure 1. The whole protocol in one drawing: the agent asks, the client assembles the tools, the
-integration server holds the accounts and performs the call, and the vault key stays behind, outside the
+*Figure 1. The whole protocol in one drawing: one server holds many integrations; the client asks what
+exists; the agent chooses a method; the server performs the call. The vault key stays behind, outside the
 database and outside every conversation.*
 
 The centre of the picture is the **integration server**: one server that holds many integrations. An
