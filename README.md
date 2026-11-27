@@ -1,4 +1,4 @@
-# MICP — Managed Integration & Credential Protocol
+# MICP: Managed Integration & Credential Protocol
 
 **Integrations for agents, without lending them the keys.**
 
