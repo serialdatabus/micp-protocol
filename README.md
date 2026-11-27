@@ -259,6 +259,12 @@ kind. Idempotency is keyed by the caller's request identifier and attempt, so a 
 
 ### 4.1 Three calls, end to end
 
+![Two hops](images/fig6.png)
+
+*Figure 6. Two hops, never more. The caller speaks HTTP to the integration server; the server speaks the
+provider's own transport. Between them sit the grant, the vault and the rendered template, and the key never
+comes back up the wire.*
+
 The call carries the method in its name. Three groups, always in this order:
 `integration.account.method`. The body carries only the inputs.
 
@@ -333,7 +339,7 @@ deployments end up doing this anyway.
 
 ![Three filters between catalogue and agent](images/fig6.png)
 
-*Figure 6. Two filters in series. Neither happens in the model, and neither requires the caller to be
+*Figure 7. Two filters in series. Neither happens in the model, and neither requires the caller to be
 trusted.*
 
 Because the announcement contains no secrets (names, descriptions, schemas), it can be served freely, cached
@@ -452,7 +458,7 @@ The two compose in either direction, and both directions are in use:
 
 ![MCP as an adapter over MICP](images/fig7.png)
 
-*Figure 7. The adapter pattern. The MCP server is stateless with respect to credentials: it translates a tool
+*Figure 8. The adapter pattern. The MCP server is stateless with respect to credentials: it translates a tool
 call into a signed request, and the integration server decides whether it may proceed.*
 
 ### 9.2 When a tool-calling protocol alone is enough
